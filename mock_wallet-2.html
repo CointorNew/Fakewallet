@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Estas etiquetas son cruciales para que parezca app nativa en iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Wallet</title>
+    
+    <!-- Cargamos los estilos y los iconos directamente -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #1f201f;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Ocultar flechas en inputs numéricos */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* Safe area para iPhone X y superior */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Animaciones */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(100%); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Estilo base para SVG de Crypto */
+        .crypto-icon { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;}
+        
+        /* Inputs editables de LARP */
+        .editable-input {
+            background: #2c2d2c;
+            color: white;
+            border: 1px solid #00FFA3;
+            border-radius: 4px;
+            outline: none;
+            padding: 2px 4px;
+            width: 90px;
+        }
+        
+        .editable-text {
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            padding: 0 2px;
+        }
+        .editable-text:active { background-color: rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body id="app-container" class="overflow-hidden">
+
+    <!-- Pantalla de Bloqueo (Face ID / PIN) -->
+    <div id="lock-screen" class="fixed inset-0 bg-[#1f201f] z-[100] flex flex-col items-center justify-center transition-opacity duration-300 pb-12">
+        <div class="flex flex-col items-center mb-12">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-gray-600 to-gray-400 mb-6 shadow-lg shadow-black/50"></div>
+            <h2 class="text-white text-[22px] font-semibold tracking-wide">Enter PIN</h2>
+        </div>
+        
+        <!-- Puntos del PIN -->
+        <div class="flex space-x-5 mb-16" id="pin-dots">
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+            <div class="w-[14px] h-[14px] rounded-full border-2 border-gray-500 pin-dot transition-colors"></div>
+        </div>
+
+        <!-- Teclado Numérico -->
+        <div class="grid grid-cols-3 gap-x-12 gap-y-6 text-white text-[32px] font-light">
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">1</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">2</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">3</button>
+            
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">4</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">5</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">6</button>
+            
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">7</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">8</button>
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">9</button>
+            
+            <!-- Botón de Face ID Falso -->
+            <button onclick="simulateFaceID()" id="face-id-btn" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-all duration-200">
+                <svg id="face-id-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="w-10 h-10 text-gray-300">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v-2a2 2 0 0 1 2-2h2M19 7v-2a2 2 0 0 0-2-2h-2M3 17v2a2 2 0 0 0 2 2h2M19 17v2a2 2 0 0 1-2 2h-2M9 10h.01M15 10h.01M12 14a3 3 0 0 0-3-3h6a3 3 0 0 0-3 3z" />
+                </svg>
+            </button>
+            
+            <button onclick="addPin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">0</button>
+            
+            <!-- Borrar -->
+            <button onclick="removePin()" class="w-20 h-20 rounded-full active:bg-white/10 flex items-center justify-center transition-colors">
+                <i class="fa-solid fa-delete-left text-2xl text-gray-400"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Indicador de Pull to Refresh -->
+    <div id="refresh-indicator" class="fixed w-full flex justify-center items-center z-10 transition-transform duration-200 ease-out" style="transform: translateY(-40px);">
+        <div class="bg-[#2c2d2c] p-2 rounded-full shadow-lg">
+            <i id="refresh-icon" class="fa-solid fa-rotate text-[#00FFA3] w-5 h-5 flex items-center justify-center"></i>
+        </div>
+    </div>
+
+    <div class="flex flex-col min-h-screen relative z-20 bg-[#1f201f]">
+        <!-- Header -->
+        <header class="px-5 py-4 flex justify-between items-center mt-2">
+            <div class="flex items-center space-x-2 bg-[#2c2d2c] py-1.5 px-3 rounded-full hover:bg-[#3a3b3a] transition cursor-pointer">
+                <div class="w-5 h-5 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 overflow-hidden flex items-center justify-center">
+                    <i class="fa-solid fa-user text-xs text-white/50"></i>
+                </div>
+                <input type="text" id="account-name" value="Account 1" class="bg-transparent text-white font-semibold text-sm outline-none border-none w-24 placeholder-gray-500 pointer-events-auto">
+                <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+            </div>
+            <div class="flex space-x-4">
+                <i class="fa-solid fa-qrcode text-xl text-gray-300"></i>
+            </div>
+        </header>
+
+        <!-- Main Balance -->
+        <div class="flex flex-col items-center mt-4 mb-6">
+            <h1 id="total-balance" class="text-[42px] font-bold tracking-tight text-white flex items-center justify-center pointer-events-auto">
+                $0.00
+            </h1>
+            <div id="total-change-container" class="flex items-center mt-1 font-semibold text-sm pointer-events-auto">
+                <span id="total-change">+$0.00</span>
+                <span id="total-percent" class="ml-1 px-1.5 py-0.5 rounded-md bg-white/10 text-xs text-white">0.00%</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-center space-x-6 px-6 mb-8">
+            <div class="flex flex-col items-center space-y-2">
+                <button class="w-12 h-12 bg-[#2c2d2c] rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-arrow-down text-white"></i>
+                </button>
+                <span class="text-[11px] font-medium text-gray-400">Receive</span>
+            </div>
+            <div class="flex flex-col items-center space-y-2">
+                <button class="w-12 h-12 bg-[#2c2d2c] rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane text-white"></i>
+                </button>
+                <span class="text-[11px] font-medium text-gray-400">Send</span>
+            </div>
+            <div class="flex flex-col items-center space-y-2">
+                <button class="w-12 h-12 bg-[#2c2d2c] rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-right-left text-white"></i>
+                </button>
+                <span class="text-[11px] font-medium text-gray-400">Swap</span>
+            </div>
+            <div class="flex flex-col items-center space-y-2">
+                <button class="w-12 h-12 bg-[#2c2d2c] rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-plus text-white"></i>
+                </button>
+                <span class="text-[11px] font-medium text-gray-400">Buy</span>
+            </div>
+        </div>
+
+        <!-- Assets List -->
+        <div class="flex-1 overflow-y-auto px-5 pb-24" id="scroll-area">
+            <div id="assets-list" class="space-y-4">
+                <!-- Los assets se inyectan por JS -->
+            </div>
+
+            <!-- Manage token list Button -->
+            <button onclick="toggleModal(true)" class="mt-6 flex items-center justify-center space-x-2 w-full py-3 rounded-xl bg-transparent hover:bg-white/5 text-gray-400 hover:text-white transition">
+                <i class="fa-solid fa-gear"></i>
+                <span class="text-sm font-medium">Manage token list</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 w-full h-16 bg-[#1f201f] border-t border-[#2c2d2c] flex items-center justify-around px-6 z-30 pb-safe">
+        <i class="fa-solid fa-table-cells-large text-white text-xl"></i>
+        <i class="fa-solid fa-right-left text-gray-500 text-xl"></i>
+        <i class="fa-regular fa-compass text-gray-500 text-xl"></i>
+        <i class="fa-regular fa-clock text-gray-500 text-xl"></i>
+        <i class="fa-solid fa-gear text-gray-500 text-xl"></i>
+    </nav>
+
+    <!-- Modal Añadir Monedas -->
+    <div id="add-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden">
+        <div class="bg-[#1a1b1a] w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t sm:border border-[#2c2d2c] shadow-2xl animate-slide-up">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-white font-bold text-xl">Manage Tokens</h3>
+                <button onclick="toggleModal(false)" class="text-gray-400 hover:text-white bg-[#2c2d2c] p-2 rounded-full w-8 h-8 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="available-coins-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1 pb-safe">
+                <!-- Monedas disponibles se inyectan aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Estado Inicial ---
+        let assets = [
+            { id: 1, name: 'Solana', symbol: 'SOL', amount: 84.36, fiatValue: 12249.07, changeFiat: 231.19, color: 'bg-gradient-to-r from-[#00FFA3] to-[#DC1FFF]' },
+            { id: 2, name: 'Ethereum', symbol: 'ETH', amount: 1.83, fiatValue: 6245.73, changeFiat: 77.96, color: 'bg-[#627EEA]' },
+            { id: 3, name: 'Bitcoin', symbol: 'BTC', amount: 0.094, fiatValue: 5861.88, changeFiat: 27.68, color: 'bg-[#F7931A]' }
+        ];
+
+        const availableCoins = [
+            { id: 5, name: 'Dogecoin', symbol: 'DOGE', amount: 150000, fiatValue: 24500.00, changeFiat: 1120.50, color: 'bg-[#BA9F33]' },
+            { id: 6, name: 'Shiba Inu', symbol: 'SHIB', amount: 500000000, fiatValue: 12000.00, changeFiat: -345.20, color: 'bg-[#E15132]' },
+            { id: 7, name: 'Pepe', symbol: 'PEPE', amount: 1000000000, fiatValue: 8700.00, changeFiat: 485.00, color: 'bg-[#4CA953]' },
+            { id: 8, name: 'Floki', symbol: 'FLOKI', amount: 2000000, fiatValue: 3300.00, changeFiat: 115.00, color: 'bg-[#ffb703]' },
+            { id: 9, name: 'Bonk', symbol: 'BONK', amount: 50000000, fiatValue: 4450.00, changeFiat: 250.00, color: 'bg-[#f2a900]' },
+            { id: 4, name: 'Polygon', symbol: 'MATIC', amount: 674.42, fiatValue: 612.17, changeFiat: -38.87, color: 'bg-[#8247E5]' }
+        ];
+
+        // --- MAGIA: FLUCTUACIÓN ALEATORIA AL CARGAR LA PÁGINA ---
+        // Esto hace que cada vez que refresques la app, los números cambien solos para que no se vea repetitivo.
+        assets = assets.map(asset => {
+            const variation = (Math.random() * 0.06) - 0.03; // Variación entre -3% y +3%
+            const newFiatValue = asset.fiatValue * (1 + variation);
+            const diff = newFiatValue - asset.fiatValue;
+            return { ...asset, fiatValue: newFiatValue, changeFiat: asset.changeFiat + diff };
+        });
+        // --------------------------------------------------------
+
+        const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+        const formatNumber = (val) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 5 }).format(val);
+
+        const getIconSVG = (name, color) => {
+            let short = name.substring(0, 4).toUpperCase();
+            if (name === 'Solana' || name === 'Ethereum' || name === 'Bitcoin' || name === 'Polygon') short = "";
+            
+            if(name === 'Solana') return `<div class="crypto-icon ${color} text-black font-bold">SOL</div>`;
+            if(name === 'Ethereum') return `<div class="crypto-icon ${color} text-white font-bold"><i class="fa-brands fa-ethereum text-xl"></i></div>`;
+            if(name === 'Bitcoin') return `<div class="crypto-icon ${color} text-white font-bold"><i class="fa-brands fa-bitcoin text-xl"></i></div>`;
+            if(name === 'Polygon') return `<div class="crypto-icon ${color} text-white text-xs font-bold">POL</div>`;
+            if(name === 'Dogecoin') return `<div class="crypto-icon ${color} text-white text-xl font-bold">Ð</div>`;
+            
+            return `<div class="crypto-icon ${color} text-white text-[10px]">${short}</div>`;
+        };
+
+        function renderApp() {
+            renderAssets();
+            updateTotals();
+            renderModalList();
+        }
+
+        function updateTotals() {
+            const totalFiat = assets.reduce((sum, a) => sum + parseFloat(a.fiatValue), 0);
+            const totalChangeFiat = assets.reduce((sum, a) => sum + parseFloat(a.changeFiat), 0);
+            const oldTotal = totalFiat - totalChangeFiat;
+            let totalPercent = 0;
+            if (oldTotal !== 0) totalPercent = (totalChangeFiat / oldTotal) * 100;
+
+            document.getElementById('total-balance').textContent = formatCurrency(totalFiat);
+            const changeEl = document.getElementById('total-change');
+            const changeContainer = document.getElementById('total-change-container');
+            
+            changeEl.textContent = (totalChangeFiat >= 0 ? '+' : '') + formatCurrency(totalChangeFiat);
+            document.getElementById('total-percent').textContent = (totalPercent >= 0 ? '+' : '') + totalPercent.toFixed(2) + '%';
+            
+            if (totalChangeFiat >= 0) {
+                changeContainer.classList.remove('text-red-500');
+                changeContainer.classList.add('text-[#00FFA3]');
+            } else {
+                changeContainer.classList.remove('text-[#00FFA3]');
+                changeContainer.classList.add('text-red-500');
+            }
+        }
+
+        function renderAssets() {
+            const container = document.getElementById('assets-list');
+            container.innerHTML = '';
+            assets.forEach(asset => {
+                const isPositive = asset.changeFiat >= 0;
+                const changeColor = isPositive ? 'text-[#00FFA3]' : 'text-red-500';
+                const changePrefix = isPositive ? '+' : '';
+
+                const el = document.createElement('div');
+                el.className = "flex items-center justify-between p-3 bg-[#161716] rounded-2xl";
+                el.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${getIconSVG(asset.name, asset.color)}
+                        <div class="flex flex-col">
+                            <span class="font-bold text-[15px]">${asset.name}</span>
+                            <div class="flex items-center space-x-1 text-sm text-gray-400 pointer-events-auto">
+                                <span class="editable-text" onclick="makeEditable(this, ${asset.id}, 'amount')">${formatNumber(asset.amount)}</span>
+                                <span>${asset.symbol}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end pointer-events-auto">
+                        <span class="font-bold text-[15px] text-white editable-text" onclick="makeEditable(this, ${asset.id}, 'fiatValue')">${formatCurrency(asset.fiatValue)}</span>
+                        <span class="text-xs font-semibold ${changeColor} editable-text" onclick="makeEditable(this, ${asset.id}, 'changeFiat')">${changePrefix}${formatCurrency(asset.changeFiat)}</span>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Lógica para que al dar click se convierta en Input y puedas editar
+        function makeEditable(element, id, field) {
+            if (element.querySelector('input')) return; 
+
+            const asset = assets.find(a => a.id === id);
+            const currentValue = asset[field];
+            
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.step = 'any';
+            input.value = currentValue;
+            input.className = 'editable-input';
+            
+            const save = () => {
+                const val = parseFloat(input.value);
+                if (!isNaN(val)) asset[field] = val;
+                renderApp(); 
+            };
+
+            input.onblur = save;
+            input.onkeydown = (e) => { if (e.key === 'Enter') save(); };
+
+            element.innerHTML = '';
+            element.appendChild(input);
+            input.focus();
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('add-modal');
+            if (show) {
+                renderModalList();
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function addCoin(coinId) {
+            const coin = availableCoins.find(c => c.id === coinId);
+            if (coin && !assets.find(a => a.id === coin.id)) {
+                assets.push({...coin});
+                renderApp();
+            }
+        }
+
+        function renderModalList() {
+            const container = document.getElementById('available-coins-list');
+            container.innerHTML = '';
+            
+            availableCoins.forEach(coin => {
+                const isAdded = assets.find(a => a.id === coin.id) !== undefined;
+                
+                const el = document.createElement('div');
+                el.className = "flex items-center justify-between bg-[#242524] p-4 rounded-2xl";
+                el.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        ${getIconSVG(coin.name, coin.color)}
+                        <div>
+                            <p class="text-white font-bold text-[15px]">${coin.name}</p>
+                            <p class="text-gray-400 text-xs">${coin.symbol}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="addCoin(${coin.id})" 
+                        ${isAdded ? 'disabled' : ''} 
+                        class="px-4 py-2 rounded-xl font-bold text-xs transition ${isAdded ? 'bg-[#2c2d2c] text-gray-500' : 'bg-[#00FFA3] text-black hover:bg-[#00e592]'}"
+                    >
+                        ${isAdded ? 'Added' : 'Add'}
+                    </button>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Lógica Pull-to-Refresh (Deslizar hacia abajo)
+        let startY = 0;
+        let isPulling = false;
+        let isRefreshing = false;
+        const body = document.getElementById('app-container');
+        const indicator = document.getElementById('refresh-indicator');
+        const icon = document.getElementById('refresh-icon');
+
+        body.addEventListener('touchstart', (e) => {
+            if (window.scrollY === 0 && !isRefreshing) {
+                startY = e.touches[0].clientY;
+                isPulling = true;
+            }
+        });
+
+        body.addEventListener('touchmove', (e) => {
+            if (!isPulling || isRefreshing) return;
+            const y = e.touches[0].clientY;
+            const diff = y - startY;
+            
+            if (diff > 0 && window.scrollY === 0) {
+                const pullDistance = Math.min(diff * 0.5, 80);
+                indicator.style.transform = `translateY(${pullDistance - 40}px)`;
+                icon.style.transform = `rotate(${pullDistance * 3}deg)`;
+                
+                if (pullDistance > 50) icon.classList.add('animate-spin');
+                else icon.classList.remove('animate-spin');
+            }
+        });
+
+        body.addEventListener('touchend', (e) => {
+            if (!isPulling || isRefreshing) return;
+            isPulling = false;
+            
+            const currentYStr = indicator.style.transform;
+            const yVal = parseFloat(currentYStr.replace(/[^\d.-]/g, ''));
+            
+            if (yVal > 10) {
+                isRefreshing = true;
+                indicator.style.transform = `translateY(20px)`;
+                
+                setTimeout(() => {
+                    // Fluctúa los precios de nuevo al hacer el gesto
+                    assets = assets.map(asset => {
+                        const variation = (Math.random() * 0.04) - 0.02;
+                        const newFiatValue = asset.fiatValue * (1 + variation);
+                        const diff = newFiatValue - asset.fiatValue;
+                        return { ...asset, fiatValue: newFiatValue, changeFiat: asset.changeFiat + diff };
+                    });
+                    
+                    renderApp();
+                    indicator.style.transform = `translateY(-40px)`;
+                    setTimeout(() => {
+                        icon.classList.remove('animate-spin');
+                        isRefreshing = false;
+                    }, 300);
+                }, 1000);
+                
+            } else {
+                indicator.style.transform = `translateY(-40px)`;
+                icon.classList.remove('animate-spin');
+            }
+        });
+
+        // --- Lógica de la Pantalla de Bloqueo ---
+        let pinCount = 0;
+        const maxPin = 6;
+        const dots = document.querySelectorAll('.pin-dot');
+        const lockScreen = document.getElementById('lock-screen');
+        const appBody = document.getElementById('app-container');
+
+        function addPin() {
+            if (pinCount < maxPin) {
+                dots[pinCount].classList.remove('border-gray-500');
+                dots[pinCount].classList.add('bg-white', 'border-white');
+                pinCount++;
+                
+                if (pinCount === maxPin) {
+                    setTimeout(unlockApp, 150);
+                }
+            }
+        }
+
+        function removePin() {
+            if (pinCount > 0) {
+                pinCount--;
+                dots[pinCount].classList.remove('bg-white', 'border-white');
+                dots[pinCount].classList.add('border-gray-500');
+            }
+        }
+
+        function simulateFaceID() {
+            const icon = document.getElementById('face-id-icon');
+            const btn = document.getElementById('face-id-btn');
+            
+            // Animación de escaneo (Se vuelve verde)
+            icon.classList.remove('text-gray-300');
+            icon.classList.add('text-[#00FFA3]');
+            btn.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
+                btn.style.transform = 'scale(1)';
+                setTimeout(unlockApp, 300);
+            }, 150);
+        }
+
+        function unlockApp() {
+            lockScreen.classList.add('opacity-0');
+            setTimeout(() => {
+                lockScreen.style.display = 'none';
+                appBody.classList.remove('overflow-hidden'); // Permite hacer scroll a la wallet
+            }, 300);
+        }
+
+        renderApp();
+    </script>
+</body>
+</html>
